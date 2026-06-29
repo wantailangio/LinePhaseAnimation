@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ライン・パターンエディタ</title>
+<style>
+  :root{
+    --bg:#1e1f26; --panel:#272832; --panel2:#2f313d; --line:#3a3c4a;
+    --txt:#e6e7ee; --muted:#9aa0b5; --accent:#5b8cff; --accent2:#ffb84d;
+    --danger:#ff5b6e;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--txt);font-size:13px;}
+  #app{display:flex;flex-direction:column;height:100vh;}
+
+  header{padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  header h1{font-size:15px;margin:0;font-weight:600;}
+  .hint{color:var(--muted);font-size:12px;}
+
+  /* top settings bar */
+  #settingsBar{background:var(--panel2);border-bottom:1px solid var(--line);padding:8px 12px;overflow-x:auto;}
+  #settingsBar .grp-name{font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+  table.settings{border-collapse:collapse;font-size:12px;}
+  table.settings th{color:var(--muted);font-weight:500;text-align:left;padding:2px 10px 6px 0;}
+  table.settings td{padding:3px 10px 3px 0;}
+  table.settings input[type=number]{width:74px;}
+  .settings-cols{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;}
+  .settings-cols table.settings:not(:first-child){padding-left:18px;border-left:1px solid var(--line);}
+  .no-grp{color:var(--muted);padding:6px 0;}
+
+  /* body */
+  #body{flex:1;display:flex;min-height:0;}
+  #sidebar{width:260px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;}
+  #stage{flex:1;display:flex;flex-direction:column;min-width:0;}
+
+  .section{padding:10px 12px;border-bottom:1px solid var(--line);}
+  .section h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 8px;}
+
+  .modebtns{display:flex;gap:6px;}
+  .modebtns button{flex:1;}
+
+  /* モード切替タブ */
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);}
+  .tabs button{flex:1;background:transparent;border:1px solid transparent;border-bottom:none;
+    border-radius:7px 7px 0 0;padding:9px 6px;margin-bottom:-1px;color:var(--muted);font-size:13px;}
+  .tabs button:hover{color:var(--txt);border-color:var(--line);}
+  .tabs button.active{color:#fff;background:var(--panel2);border-color:var(--line);border-bottom:1px solid var(--panel2);}
+  .tabs button:disabled{opacity:.4;cursor:not-allowed;background:transparent;border-color:transparent;color:var(--muted);}
+
+  button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:12px;}
+  button:hover{border-color:var(--accent);}
+  button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  button.danger{color:var(--danger);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+
+  input,select{background:#1b1c23;color:var(--txt);border:1px solid var(--line);border-radius:5px;padding:4px 6px;font-size:12px;}
+  label.inline{display:flex;align-items:center;gap:6px;color:var(--muted);}
+
+  #groupList{flex:1;overflow-y:auto;}
+  .grp-item{padding:8px;border:1px solid var(--line);border-radius:7px;margin-bottom:7px;background:var(--panel2);}
+  .grp-item.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;}
+  .grp-item.primary{box-shadow:0 0 0 2px var(--accent) inset;}
+  .grp-item.ghidden .nm{opacity:.45;text-decoration:line-through;}
+  .grp-item .row{display:flex;align-items:center;gap:7px;}
+  .swatch{width:14px;height:14px;border-radius:3px;flex:none;}
+  .grp-item .nm{flex:1;font-weight:600;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .grp-item .meta{color:var(--muted);font-size:11px;margin:4px 0 6px;}
+  .grp-item .acts{display:flex;gap:4px;}
+  .grp-item .acts button{flex:1;padding:4px 4px;font-size:11px;}
+
+  #gridToolbar{display:flex;align-items:center;gap:8px;padding:6px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  #gridToolbar button{padding:5px 12px;}
+  #canvasWrap{flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:#16171d;padding:28px;}
+  canvas{background:#0f1014;border:1px solid var(--line);border-radius:8px;cursor:crosshair;touch-action:none;}
+
+  #bottom{padding:8px 12px;background:var(--panel);border-top:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .stat{color:var(--muted);font-size:12px;}
+  .stat b{color:var(--txt);font-variant-numeric:tabular-nums;}
+  .spacer{flex:1;}
+
+  /* タッチ操作向け */
+  #app{ -webkit-tap-highlight-color:transparent; }
+  button, .modebtns, .grp-item .acts, label.inline, .stat { -webkit-user-select:none; user-select:none; }
+
+  /* スマホ / 小画面向けレイアウト */
+  @media (max-width:760px){
+    html,body{ height:auto; font-size:14px; }
+    #app{ height:auto; min-height:100vh; min-height:100dvh; }
+    #body{ flex-direction:column; }
+    #stage{ order:1; }
+    #sidebar{ order:2; width:100%; border-right:none; border-top:1px solid var(--line); }
+    #canvasWrap{ flex:none; height:min(86vw,60vh); min-height:260px; padding:10px; }
+    #settingsBar{ max-height:42vh; }
+    button{ padding:10px 12px; font-size:13px; min-height:42px; }
+    .modebtns button{ min-height:42px; }
+    .grp-item .acts button{ min-height:38px; }
+    input, select{ font-size:16px; padding:8px; }  /* 16px未満はiOSで自動ズームするため */
+    table.settings input[type=number]{ width:88px; }
+    .grp-item .nm{ font-size:14px; }
+    header{ padding:8px 12px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>ライン・パターンエディタ</h1>
+    <span class="hint" id="modeHint">描画モード: グリッド上の2点をクリックして直線を引いてください</span>
+  </header>
+
+  <!-- TOP SETTINGS (per selected group) -->
+  <div id="settingsBar"></div>
+
+  <div id="body">
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+      <div class="section">
+        <div class="tabs">
+          <button id="modeDraw" class="active">描画</button>
+          <button id="modePlace">配置</button>
+          <button id="modeRect">矩形敷詰</button>
+        </div>
+        <button id="eraserBtn" class="danger" style="width:100%;margin-top:8px" disabled>消しゴム（タップで削除）</button>
+        <div id="drawCtrls" style="margin-top:8px;">
+          <button id="saveLineBtn" class="primary" style="width:100%" disabled>選択した直線をグループ保存</button>
+          <button id="clearDrawBtn" style="width:100%;margin-top:6px">選択点をクリア</button>
+        </div>
+        <div id="placeCtrls" style="margin-top:8px;display:none;">
+          <div class="hint" style="font-size:11px">選択中グループの直線を、グリッド点にタップ/クリックで配置。重複可。削除は右クリックか「消しゴム」。</div>
+          <label class="inline" style="margin-top:8px">基準点
+            <select id="anchorSel" style="flex:1">
+              <option value="start">始端</option>
+              <option value="center" selected>中央</option>
+              <option value="end">終端</option>
+            </select>
+          </label>
+          <button id="clearInstBtn" style="width:100%;margin-top:6px">このグループの配置を全消去</button>
+        </div>
+        <div id="rectCtrls" style="margin-top:8px;display:none;">
+          <div class="hint" style="font-size:11px">グリッド上をドラッグ（指でなぞる）して矩形を選択すると、内部のグリッド点に直線を敷き詰めます。削除は右クリックか「消しゴム」。</div>
+          <label class="inline" style="margin-top:8px">基準点
+            <select id="anchorSelR" style="flex:1">
+              <option value="start">始端</option>
+              <option value="center" selected>中央</option>
+              <option value="end">終端</option>
+            </select>
+          </label>
+          <label class="inline" style="margin-top:6px">並び方向
+            <select id="rectDirSel" style="flex:1">
+              <option value="h" selected>横方向（行優先）</option>
+              <option value="v">縦方向（列優先）</option>
+            </select>
+          </label>
+          <label class="inline" style="margin-top:6px">開始隅
+            <select id="rectCornerSel" style="flex:1">
+              <option value="tl" selected>左上</option>
+              <option value="tr">右上</option>
+              <option value="bl">左下</option>
+              <option value="br">右下</option>
+            </select>
+          </label>
+          <label class="inline" style="margin-top:6px">飛ばす数
+            <input type="number" id="rectSkipInput" value="0" min="0" step="1" style="width:64px">
+            <span class="hint" style="font-size:11px">個ごと</span>
+          </label>
+          <div class="hint" style="font-size:11px;margin-top:4px">走査順に 0=全点 / 1=1つおき / 2=2つおき…</div>
+          <label class="inline" style="margin-top:6px">頭を空ける
+            <input type="number" id="rectStartOffset" value="0" min="0" step="1" style="width:64px">
+            <span class="hint" style="font-size:11px">個</span>
+          </label>
+          <div class="hint" style="font-size:11px;margin-top:4px">走査順に先頭をこの数だけ空けてから配置開始（番号は連番）</div>
+          <button id="clearInstBtnR" style="width:100%;margin-top:6px">このグループの配置を全消去</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>グリッド</h2>
+        <label class="inline">サイズ
+          <input type="number" id="gridSize" value="5" min="2" max="100" style="width:64px">
+          × 同上
+        </label>
+      </div>
+
+      <div class="section" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+        <h2>グループ</h2>
+        <div id="groupList"></div>
+      </div>
+    </div>
+
+    <!-- STAGE -->
+    <div id="stage">
+      <div id="gridToolbar">
+        <span class="hint">表示</span>
+        <button id="zoomOutBtn">－</button>
+        <button id="zoomInBtn">＋</button>
+        <button id="zoomResetBtn">リセット</button>
+        <span class="hint" id="zoomHint">ズーム 100%（ホイール/ピンチ、中ドラッグ移動）</span>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:6px">
+          <button id="randomBtn" title="選択グループに規則性のあるランダム設定を生成">🎲 ランダム</button>
+          <span class="hint">シード</span>
+          <input type="number" id="seedInput" title="同じ値で同じ結果を再現" style="width:104px">
+          <button id="seedApplyBtn" title="このシードで再生成">適用</button>
+        </span>
+      </div>
+      <div id="canvasWrap">
+        <canvas id="cv" width="640" height="640"></canvas>
+      </div>
+      <div id="bottom">
+        <button id="playBtn" class="primary">▶ 再生</button>
+        <button id="resetBtn">⟲ リセット</button>
+        <button id="toggleLinesBtn" class="active">直線表示</button>
+        <button id="toggleGridBtn" class="active">グリッド表示</button>
+        <button id="exportBtn">JSON書出</button>
+        <button id="importBtn">JSON読込</button>
+        <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+        <select id="presetSel" title="プリセット"></select>
+        <button id="presetLoadBtn">プリセット読込</button>
+        <div class="spacer"></div>
+        <span class="stat">グループ <b id="stGroups">0</b></span>
+        <span class="stat">配置数 <b id="stInst">0</b></span>
+        <span class="stat">動く点 <b id="stPoints">0</b></span>
+        <span class="stat">FPS <b id="stFps">0</b></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ============ 設定項目定義 ============ */
+const SETTING_DEFS = [
+  { key:'speed',        label:'点の速度',  unit:'px/s', def:90,  min:0,    step:1   },
+  { key:'angle',        label:'角度(加算)',unit:'°',    def:0,   min:-360, step:1, max:360 },
+  { key:'delay',        label:'開始遅延',  unit:'s',    def:0,   min:0,    step:0.1 },
+  { key:'startPos',     label:'開始位置',  unit:'%',    def:0,   min:0,    step:1, max:100 },
+  { key:'stopInterval', label:'停止間隔',  unit:'s',    def:0,   min:0,    step:0.1 },
+  { key:'stopDuration', label:'停止秒数',  unit:'s',    def:0,   min:0,    step:0.1 },
+  { key:'pointCount',   label:'点の数',    unit:'個',   def:1,   min:1,    step:1,  max:50 },
+  { key:'pointOffset',  label:'点の開始ずらし', unit:'%', def:25, min:-100, step:1, max:100 },
+  { key:'pointSize',    label:'点のサイズ', unit:'px',  def:4.5, min:0.5,  step:0.5, max:4.5 },
+];
+const POINT_SIZE_MAX=4.5;   // 現在のサイズを上限とする
+// 設定パネルを横3カラムに分割（高さを抑える）
+const SETTING_COLS = [
+  ['speed','angle','delay','startPos'],
+  ['stopInterval','stopDuration'],
+  ['pointCount','pointOffset','pointSize'],
+];
+const SETTING_BY_KEY = Object.fromEntries(SETTING_DEFS.map(d=>[d.key,d]));
+const PALETTE = ['#5b8cff','#ffb84d','#4dd6a8','#ff7ab6','#b07bff','#ff6f5b','#62d0ff','#c5e15b'];
+
+/* ============ 状態 ============ */
+const state = {
+  mode:'draw',
+  gridN:5,
+  drawPts:[],          // 選択中のグリッド点 [{gx,gy}]
+  hoverPt:null,        // 描画プレビュー用
+  groups:[],
+  selectedId:null,        // 主選択（設定バー表示・配置先）
+  selectedIds:[],         // 複数選択（設定の一括適用対象）
+  lastSeed:(Math.random()*1e9)|0,   // ランダム生成シード（再現用）
+  colorIdx:0,
+  running:false,
+  animTime:0,
+  placeAnchor:'center',   // start / center / end
+  settingsHidden:false,   // グループ設定の表示/非表示
+  rectDir:'h',            // 敷き詰め並び方向 h=横優先 / v=縦優先
+  rectCorner:'tl',        // 開始隅 tl/tr/bl/br
+  rectStart:null,         // ドラッグ開始グリッド点
+  rectDragging:false,
+  lineStart:null,         // 配置モードのドラッグ開始点
+  lineDragging:false,
+  rectSkip:0,             // 敷き詰め時に飛ばすグリッド点数（0=全点）
+  rectStartOffset:0,      // 敷き詰め時に先頭インデックスを空ける数
+  showLines:true,         // 配置済み直線の表示/非表示
+  showGrid:true,          // グリッド点の表示/非表示
+  eraser:false,           // タップ/クリックで削除モード（配置・矩形時）
+  zoom:1,                 // 表示ズーム（中心基準）
+  panX:0, panY:0,         // 表示パン（px）
+};
+const ZMIN=0.2, ZMAX=8;
+let nextId=1;
+
+/* ============ DOM ============ */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+const $ = id=>document.getElementById(id);
+
+/* ============ グリッド座標計算 ============ */
+function gridGeom(){
+  // キャンバスサイズに対し十分な余白を確保（最低48px、最大はサイズの12%）
+  const pad = Math.max(48, Math.min(cv.width, cv.height)*0.12);
+  const N = state.gridN;
+  const usable = Math.min(cv.width, cv.height) - pad*2;
+  const cell = N>1 ? usable/(N-1) : 0;
+  const x0 = (cv.width - cell*(N-1))/2;
+  const y0 = (cv.height - cell*(N-1))/2;
+  return {pad,N,cell,x0,y0};
+}
+function resizeCanvas(){
+  const wrap=document.getElementById('canvasWrap');
+  // clientWidth/Height はパディングを含むので実際のpaddingを差し引いて内容領域に合わせる
+  const cs=getComputedStyle(wrap);
+  const padX=parseFloat(cs.paddingLeft)+parseFloat(cs.paddingRight);
+  const padY=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom);
+  const avail=Math.min(wrap.clientWidth-padX, wrap.clientHeight-padY);
+  const size=Math.max(220, Math.floor(avail));
+  if(cv.width!==size||cv.height!==size){ cv.width=size; cv.height=size; gridCache=null; }
+}
+// グリッド座標→画面座標（ズーム=中心基準のスケール + パン）
+function gridToPx(gx,gy){
+  const g=gridGeom();
+  const cx=cv.width/2, cy=cv.height/2, z=state.zoom;
+  const bx=g.x0+gx*g.cell, by=g.y0+gy*g.cell;
+  return { x:(bx-cx)*z+cx+state.panX, y:(by-cy)*z+cy+state.panY };
+}
+function nearestGridPt(px,py){
+  const g=gridGeom();
+  const cx=cv.width/2, cy=cv.height/2, z=state.zoom;
+  let best=null, bestD=Infinity;
+  for(let y=0;y<g.N;y++)for(let x=0;x<g.N;x++){
+    const sx=(g.x0+x*g.cell-cx)*z+cx+state.panX, sy=(g.y0+y*g.cell-cy)*z+cy+state.panY;
+    const d=(sx-px)**2+(sy-py)**2;
+    if(d<bestD){bestD=d;best={gx:x,gy:y,px:sx,py:sy,d:Math.sqrt(d)};}
+  }
+  return best;
+}
+// 指定スクリーン点を固定したままズーム
+function zoomAt(sx,sy,ratio){
+  const z=state.zoom, z2=Math.min(ZMAX,Math.max(ZMIN,z*ratio));
+  const cx=cv.width/2, cy=cv.height/2;
+  state.panX = sx - cx - (sx - cx - state.panX)*(z2/z);
+  state.panY = sy - cy - (sy - cy - state.panY)*(z2/z);
+  state.zoom = z2;
+  updateZoomHint();
+}
+function resetView(){ state.zoom=1; state.panX=0; state.panY=0; updateZoomHint(); }
+function updateZoomHint(){ const el=$('zoomHint'); if(el) el.textContent='ズーム '+Math.round(state.zoom*100)+'%（ホイール/ピンチ、中ドラッグ移動）'; }
+
+// グリッド点はオフスクリーンにキャッシュ（ズーム/パンが静止していれば再利用、画面外は間引き）
+let gridCache=null, gridCacheKey='';
+function getGridCache(){
+  const g=gridGeom();
+  const key=cv.width+'x'+cv.height+':'+state.gridN+':'+state.zoom.toFixed(3)+':'+Math.round(state.panX)+':'+Math.round(state.panY);
+  if(gridCache && gridCacheKey===key && gridCache.width===cv.width && gridCache.height===cv.height) return gridCache;
+  if(!gridCache || gridCache.width!==cv.width || gridCache.height!==cv.height){
+    gridCache=document.createElement('canvas'); gridCache.width=cv.width; gridCache.height=cv.height;
+  }
+  const o=gridCache.getContext('2d');
+  o.clearRect(0,0,cv.width,cv.height);
+  const cx=cv.width/2, cy=cv.height/2, z=state.zoom, W=cv.width, H=cv.height;
+  const toPx=(gx,gy)=>({ x:(g.x0+gx*g.cell-cx)*z+cx+state.panX, y:(g.y0+gy*g.cell-cy)*z+cy+state.panY });
+  const r=(state.gridN>60?0.8:(state.gridN>40?1.2:2.4))*Math.min(2,Math.max(0.7,z));
+  o.fillStyle='#333645';
+  for(let y=0;y<g.N;y++)for(let x=0;x<g.N;x++){
+    const p=toPx(x,y);
+    if(p.x<-2||p.x>W+2||p.y<-2||p.y>H+2) continue;   // 画面外は描かない
+    o.beginPath(); o.arc(p.x,p.y,r,0,Math.PI*2); o.fill();
+  }
+  // 中心マーカー（二重丸）
+  const N=g.N, ringR=Math.max(4, r+3.5);
+  const drawDouble=(gx,gy,dashed)=>{
+    const p=toPx(gx,gy);
+    if(p.x<-ringR||p.x>W+ringR||p.y<-ringR||p.y>H+ringR) return;
+    o.fillStyle='#8a8fa6';
+    o.beginPath(); o.arc(p.x,p.y,Math.max(1.6,r),0,Math.PI*2); o.fill();
+    o.strokeStyle='#8a8fa6'; o.lineWidth=1.2;
+    o.setLineDash(dashed?[2.5,2.5]:[]);
+    o.beginPath(); o.arc(p.x,p.y,ringR,0,Math.PI*2); o.stroke();
+    o.setLineDash([]);
+  };
+  if(N%2===1){ const c=(N-1)/2; drawDouble(c,c,false); }
+  else{ const a=N/2-1, b=N/2; drawDouble(a,a,true);drawDouble(b,a,true);drawDouble(a,b,true);drawDouble(b,b,true); }
+  gridCacheKey=key; return gridCache;
+}
+
+/* ============ グループ作成 ============ */
+function makeSettings(){
+  const s={};
+  for(const d of SETTING_DEFS) s[d.key]={value:d.def, vary:false, increment:0};
+  return s;
+}
+function createGroupFromDraw(){
+  if(state.drawPts.length<2) return;
+  const a=state.drawPts[0], b=state.drawPts[1];
+  // 長さはグリッド単位で保持（グリッド/キャンバスサイズに追従させる）
+  const gdx=b.gx-a.gx, gdy=b.gy-a.gy;
+  const lengthCells=Math.hypot(gdx,gdy);
+  if(lengthCells<0.001) return;
+  const baseAngle=Math.atan2(gdy,gdx)*180/Math.PI;   // 描いた向き(度)
+  const color='#ffffff';   // デフォルトは白固定（グループごとに変更可）
+  const g={
+    id:nextId++, name:'グループ '+state.groups.length+1, color,
+    lengthCells, baseAngle,
+    settings:makeSettings(),
+    instances:[], visible:true,
+  };
+  g.name='グループ '+(state.groups.length+1);
+  state.groups.push(g);
+  selectOnly(g.id);
+  state.drawPts=[];
+  renderGroupList(); renderSettingsBar(); updateStats();
+}
+function duplicateGroup(src){
+  const g={
+    id:nextId++, name:src.name+' のコピー', color:src.color,
+    lengthCells:src.lengthCells, baseAngle:src.baseAngle,
+    settings:JSON.parse(JSON.stringify(src.settings)),
+    instances:[], visible:src.visible!==false,
+  };
+  state.groups.push(g);
+  selectOnly(g.id);
+  renderGroupList(); renderSettingsBar(); updateStats();
+}
+function getSelected(){ return state.groups.find(g=>g.id===state.selectedId)||null; }
+// 単一選択にする（複数選択を解除）
+function selectOnly(id){ state.selectedId=id; state.selectedIds = id?[id]:[]; }
+// 設定一括適用の対象グループ群（主選択を含む）
+function selectedGroups(){
+  let arr=state.selectedIds.map(id=>state.groups.find(g=>g.id===id)).filter(Boolean);
+  if(arr.length===0){ const p=getSelected(); if(p) arr=[p]; }
+  return arr;
+}
+function groupLenPx(group){ return group.lengthCells * gridGeom().cell; }
+
+/* ============ 有効値（ずらし計算） ============ */
+function effVal(s, idx){ if(!s) return 0; return s.value + (s.vary ? idx*s.increment : 0); }
+// [lo,hi]内で三角波として反射。上限に達したら増分ぶん戻る（…99,100,99,98…）。
+function reflectRange(v, lo, hi){
+  const span=hi-lo;
+  if(span<=0) return lo;
+  const period=2*span;
+  let t=(((v-lo)%period)+period)%period;
+  if(t>span) t=period-t;
+  return lo+t;
+}
+function effectiveSettings(group, idx){
+  const S=group.settings;
+  return {
+    speed:        Math.max(0, effVal(S.speed,idx)),
+    angle:        effVal(S.angle,idx),
+    delay:        Math.max(0, effVal(S.delay,idx)),
+    startPos:     reflectRange(effVal(S.startPos,idx), 0, 100),       // 上限100%で反射
+    stopInterval: Math.max(0, effVal(S.stopInterval,idx)),
+    stopDuration: Math.max(0, effVal(S.stopDuration,idx)),
+    pointCount:   Math.max(1, Math.round(effVal(S.pointCount,idx))),
+    pointOffset:  reflectRange(effVal(S.pointOffset,idx), -100, 100), // ±100%で反射
+    pointSize:    Math.min(POINT_SIZE_MAX, Math.max(0.5, effVal(S.pointSize,idx))),
+  };
+}
+
+/* 各インスタンスは stagger 用の orderIndex を保持（無ければ0） */
+function instIdx(inst){ return inst.orderIndex||0; }
+// 次に割り当てる orderIndex（既存の最大+1）。新規が常に最後になる。
+function nextOrderIndex(g){
+  let mx=-1;
+  for(const i of g.instances){ const o=i.orderIndex||0; if(o>mx) mx=o; }
+  return mx+1;
+}
+// 配置順（配列順）に詰め直して欠番をなくす。変わったものだけランタイム再初期化。
+function reindexGroup(g){
+  g.instances.forEach((inst,i)=>{
+    if(inst.orderIndex!==i){ inst.orderIndex=i; initRuntime(g,inst); }
+  });
+}
+
+/* ============ ランタイム初期化 ============ */
+// 位相φ（直線長単位）→ 往復運動上の位置pと向きdir（周期2の三角波）。
+// これにより開始ずらしが範囲を超えても折り返して分布し、100%でも0へ巻き戻って重ならない。
+function phaseToPD(phi){
+  const m=((phi%2)+2)%2;                 // [0,2)
+  return m<=1 ? {p:m, dir:1} : {p:2-m, dir:-1};
+}
+function initRuntime(group, inst){
+  const eff=effectiveSettings(group, instIdx(inst));
+  const count=eff.pointCount;
+  inst._rts=[];
+  for(let k=0;k<count;k++){
+    const pd=phaseToPD(eff.startPos/100 + k*eff.pointOffset/100);  // 各点の開始位相
+    inst._rts.push({ p:pd.p, start:pd.p, startDir:pd.dir, dir:pd.dir, mode:'wait', phaseTime:0, sinceStop:0 });
+  }
+}
+function initAllRuntimes(){
+  for(const g of state.groups) g.instances.forEach(inst=>initRuntime(g,inst));
+}
+
+/* ============ 1フレーム更新 ============ */
+function updateInstance(group, inst, dt){
+  const eff=effectiveSettings(group, instIdx(inst));
+  const lenPx=groupLenPx(group);
+  const speedParam = lenPx>0 ? eff.speed/lenPx : 0;
+  const rts=inst._rts||[];
+  for(const rt of rts){
+    // 遅延前
+    if(state.animTime < eff.delay){
+      rt.p=rt.start; rt.dir=rt.startDir; rt.mode='wait'; rt.phaseTime=0; rt.sinceStop=0;
+      continue;
+    }
+    if(rt.mode==='wait'){ rt.mode='move'; rt.sinceStop=0; }
+    if(rt.mode==='stop'){
+      rt.phaseTime+=dt;
+      if(rt.phaseTime>=eff.stopDuration){ rt.mode='move'; rt.sinceStop=0; }
+      continue;
+    }
+    // move
+    rt.p += rt.dir*speedParam*dt;
+    if(rt.p>1){ rt.p=1; rt.dir=-1; }
+    if(rt.p<0){ rt.p=0; rt.dir=1; }
+    rt.sinceStop+=dt;
+    if(eff.stopInterval>0 && eff.stopDuration>0 && rt.sinceStop>=eff.stopInterval){
+      rt.mode='stop'; rt.phaseTime=0;
+    }
+  }
+}
+
+/* ============ 描画 ============ */
+function instGeom(group, inst){
+  const eff=effectiveSettings(group, instIdx(inst));
+  const ang=(group.baseAngle+eff.angle)*Math.PI/180;
+  const lenPx=groupLenPx(group)*state.zoom;   // 描画長はズームに追従（グリッド上のマス数は不変）
+  const vx=Math.cos(ang)*lenPx, vy=Math.sin(ang)*lenPx;
+  const a=gridToPx(inst.gx, inst.gy);   // グリッド点 = 基準点
+  let sx,sy;
+  if(inst.anchor==='start'){ sx=a.x;       sy=a.y;       }
+  else if(inst.anchor==='end'){ sx=a.x-vx; sy=a.y-vy;    }
+  else { sx=a.x-vx/2; sy=a.y-vy/2; }   // center
+  return { sx, sy, ex:sx+vx, ey:sy+vy };
+}
+function render(){
+  resizeCanvas();
+  ctx.clearRect(0,0,cv.width,cv.height);
+
+  // グリッド点（キャッシュ描画）
+  if(state.showGrid) ctx.drawImage(getGridCache(),0,0);
+
+  // 配置済みインスタンス（クリップなし＝枠外の点も表示）
+  ctx.save();
+  const zPt=Math.min(2,Math.max(0.7,state.zoom));   // 点サイズをズームに少し追従
+  for(const grp of state.groups){
+    if(grp.visible===false) continue;   // 非表示グループは描画しない
+    grp.instances.forEach(inst=>{
+      const gm=instGeom(grp,inst);
+      if(state.showLines){
+        ctx.strokeStyle=grp.color; ctx.globalAlpha=0.55; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.moveTo(gm.sx,gm.sy); ctx.lineTo(gm.ex,gm.ey); ctx.stroke();
+        ctx.globalAlpha=1;
+      }
+      // 動く点（直線上に複数）
+      const eff=effectiveSettings(grp,instIdx(inst));
+      const size=eff.pointSize*zPt, inner=Math.max(0.4,size*(1.6/POINT_SIZE_MAX));
+      for(const rt of (inst._rts||[])){
+        const p=rt.p;
+        const px=gm.sx+(gm.ex-gm.sx)*p, py=gm.sy+(gm.ey-gm.sy)*p;
+        ctx.fillStyle=grp.color;
+        ctx.beginPath(); ctx.arc(px,py,size,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#fff';
+        ctx.beginPath(); ctx.arc(px,py,inner,0,Math.PI*2); ctx.fill();
+      }
+    });
+  }
+  // orderIndex ラベル（停止中のみ・グリッド点上に小さく表示。画面外は省略、多すぎる場合は非表示）
+  let total=0; for(const grp of state.groups) if(grp.visible!==false) total+=grp.instances.length;
+  if(!state.running && total<=800){
+    const fs=Math.max(8, Math.min(18, 9*state.zoom));
+    const off=fs*0.6+6;   // グリッド点に重ならないよう少し上へ
+    ctx.font=fs+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    ctx.lineWidth=2;
+    const W=cv.width, H=cv.height;
+    for(const grp of state.groups){
+      if(grp.visible===false) continue;
+      for(const inst of grp.instances){
+        const gp=gridToPx(inst.gx, inst.gy);
+        if(gp.x<-12||gp.x>W+12||gp.y<-12||gp.y>H+18) continue;
+        const txt=String((inst.orderIndex||0)+1);   // 表示は1始まり
+        ctx.strokeStyle='rgba(0,0,0,0.8)'; ctx.strokeText(txt, gp.x, gp.y-off);
+        ctx.fillStyle='#fff'; ctx.fillText(txt, gp.x, gp.y-off);
+      }
+    }
+  }
+  ctx.restore();
+
+  // 配置モードのプレビュー
+  if(state.mode==='place'){
+    const dragging = state.lineDragging && state.lineStart && state.hoverPt &&
+                     (state.hoverPt.gx!==state.lineStart.gx || state.hoverPt.gy!==state.lineStart.gy);
+    if(dragging){
+      // ドラッグ中：ライン上の配置点をプレビュー
+      const pts=gridLinePoints(state.lineStart, state.hoverPt);
+      ctx.fillStyle='#5b8cff';
+      for(const pt of pts){ const q=gridToPx(pt.gx,pt.gy); ctx.beginPath(); ctx.arc(q.x,q.y,2.5,0,Math.PI*2); ctx.fill(); }
+      const sp=gridToPx(state.lineStart.gx,state.lineStart.gy);
+      ctx.fillStyle='#ffb84d'; ctx.beginPath(); ctx.arc(sp.x,sp.y,6,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font='12px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='bottom';
+      ctx.fillText(pts.length+' 本', sp.x+9, sp.y-4);
+    }else if(state.hoverPt){
+      const g=getSelected();
+      const a=gridToPx(state.hoverPt.gx,state.hoverPt.gy);
+      if(g){
+        const ang=g.baseAngle*Math.PI/180;
+        const lenPx=groupLenPx(g)*state.zoom;
+        const vx=Math.cos(ang)*lenPx, vy=Math.sin(ang)*lenPx;
+        let sx,sy;
+        if(state.placeAnchor==='start'){ sx=a.x; sy=a.y; }
+        else if(state.placeAnchor==='end'){ sx=a.x-vx; sy=a.y-vy; }
+        else { sx=a.x-vx/2; sy=a.y-vy/2; }
+        ctx.strokeStyle=g.color; ctx.globalAlpha=0.5; ctx.lineWidth=2; ctx.setLineDash([6,4]);
+        ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+vx,sy+vy); ctx.stroke();
+        ctx.setLineDash([]); ctx.globalAlpha=1;
+      }
+      ctx.strokeStyle='#ffb84d'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(a.x,a.y,8,0,Math.PI*2); ctx.stroke();
+    }
+  }
+
+  // 矩形敷詰モードのプレビュー
+  if(state.mode==='rect'){
+    const cur=state.hoverPt;
+    if(state.rectDragging && state.rectStart && cur){
+      const minx=Math.min(state.rectStart.gx,cur.gx), maxx=Math.max(state.rectStart.gx,cur.gx);
+      const miny=Math.min(state.rectStart.gy,cur.gy), maxy=Math.max(state.rectStart.gy,cur.gy);
+      const p0=gridToPx(minx,miny), p1=gridToPx(maxx,maxy);
+      ctx.fillStyle='#5b8cff'; ctx.globalAlpha=0.12;
+      ctx.fillRect(p0.x,p0.y,p1.x-p0.x,p1.y-p0.y);
+      ctx.globalAlpha=1; ctx.strokeStyle='#5b8cff'; ctx.lineWidth=1.5; ctx.setLineDash([5,4]);
+      ctx.strokeRect(p0.x,p0.y,p1.x-p0.x,p1.y-p0.y); ctx.setLineDash([]);
+      // 実際に配置される点（飛ばす数・頭を空ける数を反映）
+      const placed=rectFillPoints({x0:state.rectStart.gx,y0:state.rectStart.gy,x1:cur.gx,y1:cur.gy,
+        dir:state.rectDir, corner:state.rectCorner, skip:state.rectSkip, startOffset:state.rectStartOffset});
+      ctx.fillStyle='#5b8cff';
+      for(const pt of placed){ const q=gridToPx(pt.gx,pt.gy); ctx.beginPath(); ctx.arc(q.x,q.y,2.5,0,Math.PI*2); ctx.fill(); }
+      if(placed.length){   // 実際の開始点（頭を空けた後の最初の配置点）
+        const sp=gridToPx(placed[0].gx,placed[0].gy);
+        ctx.fillStyle='#ffb84d'; ctx.beginPath(); ctx.arc(sp.x,sp.y,6,0,Math.PI*2); ctx.fill();
+      }
+      ctx.fillStyle='#fff'; ctx.font='12px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='bottom';
+      ctx.fillText(placed.length+' 本', p0.x, p0.y-4);
+    } else if(cur){
+      const a=gridToPx(cur.gx,cur.gy);
+      ctx.strokeStyle='#5b8cff'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(a.x,a.y,8,0,Math.PI*2); ctx.stroke();
+    }
+  }
+
+  // 描画モードのプレビュー
+  if(state.mode==='draw'){
+    const sel=state.drawPts;
+    for(const pt of sel){
+      const p=gridToPx(pt.gx,pt.gy);
+      ctx.fillStyle=state.accentColor||'#5b8cff';
+      ctx.strokeStyle='#5b8cff'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(p.x,p.y,6,0,Math.PI*2); ctx.fill();
+    }
+    if(sel.length===1 && state.hoverPt){
+      const a=gridToPx(sel[0].gx,sel[0].gy);
+      const b=gridToPx(state.hoverPt.gx,state.hoverPt.gy);
+      ctx.strokeStyle='#5b8cff'; ctx.globalAlpha=0.6; ctx.lineWidth=2;
+      ctx.setLineDash([6,4]);
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha=1;
+    }
+    if(sel.length===2){
+      const a=gridToPx(sel[0].gx,sel[0].gy), b=gridToPx(sel[1].gx,sel[1].gy);
+      ctx.strokeStyle='#5b8cff'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    }
+    // ホバー点ハイライト
+    if(state.hoverPt){
+      const p=gridToPx(state.hoverPt.gx,state.hoverPt.gy);
+      ctx.strokeStyle='#5b8cff'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(p.x,p.y,8,0,Math.PI*2); ctx.stroke();
+    }
+  }
+}
+
+/* ============ メインループ ============ */
+let last=performance.now(), fpsAcc=0, fpsCount=0, fpsShown=0;
+function frame(now){
+  let dt=(now-last)/1000; last=now;
+  if(dt>0.05) dt=0.05;
+  if(state.running){
+    state.animTime+=dt;
+    for(const g of state.groups) g.instances.forEach(inst=>updateInstance(g,inst,dt));
+  }
+  render();
+  // fps
+  fpsAcc+=dt; fpsCount++;
+  if(fpsAcc>=0.5){ fpsShown=Math.round(fpsCount/fpsAcc); fpsAcc=0; fpsCount=0; $('stFps').textContent=fpsShown; }
+  requestAnimationFrame(frame);
+}
+
+/* ============ 規則性つきランダム生成 ============ */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function rRange(r,min,max){ return min+r()*(max-min); }
+function rPick(r,arr){ return arr[Math.floor(r()*arr.length)]; }
+function rQuant(r,min,max,step){ return +(Math.round(rRange(r,min,max)/step)*step).toFixed(4); }
+function randomizeGroupSettings(g, r){
+  const S=g.settings;
+  for(const d of SETTING_DEFS){ S[d.key].vary=false; S[d.key].increment=0; }
+  S.speed.value      = rQuant(r,40,160,10);
+  S.angle.value      = rPick(r,[0,0,0,15,-15,30,-30,45,-45,90]);
+  S.delay.value      = 0;
+  S.startPos.value   = rQuant(r,0,100,10);
+  if(r()<0.4){ S.stopInterval.value=rQuant(r,0.5,2,0.5); S.stopDuration.value=rQuant(r,0.2,1,0.1); }
+  else       { S.stopInterval.value=0; S.stopDuration.value=0; }
+  S.pointCount.value = 1+Math.floor(r()*4);             // 1..4
+  S.pointOffset.value= rPick(r,[0,25,50,100,-50]);
+  S.pointSize.value  = rQuant(r,2,4.5,0.5);
+  // 規則性：1〜2項目に「ずらす」を付与してグラデーション/波を作る
+  const opts=[
+    ()=>{ S.delay.vary=true;     S.delay.increment=rQuant(r,0.02,0.15,0.01); },  // 進行波
+    ()=>{ S.angle.vary=true;     S.angle.increment=rPick(r,[2,3,5,-3,-5]); },     // 扇形
+    ()=>{ S.startPos.vary=true;  S.startPos.increment=rPick(r,[5,10,-10,15]); },  // 位相勾配
+    ()=>{ S.pointSize.vary=true; S.pointSize.increment=rPick(r,[-0.1,-0.05,0.05]); },
+    ()=>{ S.speed.vary=true;     S.speed.increment=rPick(r,[2,5,-3]); },
+  ];
+  for(let i=opts.length-1;i>0;i--){ const j=Math.floor(r()*(i+1)); [opts[i],opts[j]]=[opts[j],opts[i]]; }
+  const n=1+(r()<0.5?1:0);
+  for(let i=0;i<n;i++) opts[i]();
+}
+function randomizeSelected(seed){
+  const groups=selectedGroups();
+  if(!groups.length){ alert('ランダム適用するグループを選択してください。'); return; }
+  state.lastSeed=seed>>>0;
+  $('seedInput').value=state.lastSeed;
+  // 選択中の全グループに同じシードを適用（毎回フレッシュな乱数列＝全グループ同一の値）
+  groups.forEach(g=>{ randomizeGroupSettings(g, mulberry32(state.lastSeed)); });
+  state.animTime=0;                       // 先頭から見えるようにリセット
+  initAllRuntimes(); renderSettingsBar(); updateStats();
+  if(!state.running){ state.running=true; $('playBtn').textContent='⏸ 一時停止'; }
+}
+
+/* ============ UI: 設定バー ============ */
+function renderSettingsBar(){
+  const bar=$('settingsBar');
+  const g=getSelected();
+  if(!g){ bar.innerHTML='<div class="no-grp">グループ未選択。描画モードで直線を引き「グループ保存」すると、ここに設定が表示されます。</div>'; return; }
+  const toggleLabel = state.settingsHidden ? '▸ 設定を表示' : '▾ 設定を隠す';
+  const nSel = selectedGroups().length;
+  const multiBadge = nSel>1 ? `<span class="hint" style="color:var(--accent2)">▶ ${nSel}グループに一括適用</span>` : '';
+  let html=`<div class="grp-name"><input type="color" id="grpColor" value="${g.color}" title="グループ色" style="width:26px;height:22px;padding:0;border:1px solid var(--line);background:none;cursor:pointer">
+    <input type="text" id="grpNameInput" value="${escapeAttr(g.name)}" style="width:180px">
+    <span class="hint">長さ ${g.lengthCells.toFixed(2)}マス / 基準角 ${g.baseAngle.toFixed(0)}°</span>
+    ${multiBadge}
+    <button id="toggleSettings" style="margin-left:auto">${toggleLabel}</button></div>`;
+  if(!state.settingsHidden){
+    html+='<div class="settings-cols">';
+    for(const col of SETTING_COLS){
+      html+='<table class="settings"><tr><th>設定</th><th>基準値</th><th>変化</th><th>増分</th></tr>';
+      for(const key of col){
+        const d=SETTING_BY_KEY[key], s=g.settings[key];
+        html+=`<tr data-k="${key}">
+          <td>${d.label}<span class="hint"> ${d.unit}</span></td>
+          <td><input type="number" class="s-val" value="${s.value}" step="${d.step}" ${d.min!=null?`min="${d.min}"`:''} ${d.max!=null?`max="${d.max}"`:''}></td>
+          <td><label class="inline"><input type="checkbox" class="s-vary" ${s.vary?'checked':''}> ずらす</label></td>
+          <td><input type="number" class="s-inc" value="${s.increment}" step="${d.step}" ${s.vary?'':'disabled'}></td>
+        </tr>`;
+      }
+      html+='</table>';
+    }
+    html+='</div>';
+  }
+  bar.innerHTML=html;
+
+  $('toggleSettings').addEventListener('click',()=>{ state.settingsHidden=!state.settingsHidden; renderSettingsBar(); });
+  $('grpColor').addEventListener('input',e=>{ g.color=e.target.value; renderGroupList(); });
+  $('grpNameInput').addEventListener('input',e=>{g.name=e.target.value;renderGroupList();});
+  // 設定の編集は選択中の全グループへ一括適用
+  bar.querySelectorAll('tr[data-k]').forEach(tr=>{
+    const k=tr.dataset.k;
+    const apply=fn=>{ for(const grp of selectedGroups()) fn(grp.settings[k]); initAllRuntimes(); updateStats(); };
+    tr.querySelector('.s-val').addEventListener('input',e=>{ const v=parseFloat(e.target.value)||0; apply(s=>s.value=v); });
+    tr.querySelector('.s-inc').addEventListener('input',e=>{ const v=parseFloat(e.target.value)||0; apply(s=>s.increment=v); });
+    tr.querySelector('.s-vary').addEventListener('change',e=>{
+      const v=e.target.checked;
+      tr.querySelector('.s-inc').disabled=!v;
+      apply(s=>s.vary=v);
+    });
+  });
+}
+
+/* グループ未保存なら配置系モードを使えないようにする */
+function updateModeButtons(){
+  const none=state.groups.length===0;
+  $('modePlace').disabled=none;
+  $('modeRect').disabled=none;
+  if(none && (state.mode==='place'||state.mode==='rect')) setMode('draw');
+}
+
+/* ============ UI: グループリスト ============ */
+function renderGroupList(){
+  updateModeButtons();
+  const list=$('groupList');
+  if(state.groups.length===0){ list.innerHTML='<div class="hint">まだグループがありません。</div>'; return; }
+  list.innerHTML='';
+  for(const g of state.groups){
+    const div=document.createElement('div');
+    const multi=state.selectedIds.includes(g.id);
+    div.className='grp-item'+(multi?' sel':'')+(g.id===state.selectedId?' primary':'');
+    const hidden=g.visible===false;
+    if(hidden) div.classList.add('ghidden');
+    div.innerHTML=`
+      <div class="row"><input type="checkbox" class="grp-sel" title="複数選択" ${multi?'checked':''} style="flex:none;margin:0">
+        <input type="color" class="grp-color" value="${g.color}" title="グループ色" style="width:18px;height:18px;padding:0;border:none;background:none;cursor:pointer;flex:none">
+        <span class="nm">${escapeHtml(g.name)}</span>
+        <button class="vis" title="表示/非表示" style="flex:none;padding:2px 7px">${hidden?'🚫':'👁'}</button></div>
+      <div class="meta">配置 ${g.instances.length} / 長さ ${g.lengthCells.toFixed(2)}マス</div>
+      <div class="acts">
+        <button data-a="sel">選択</button>
+        <button data-a="dup">複製</button>
+        <button data-a="del" class="danger">削除</button>
+      </div>`;
+    const selBox=div.querySelector('.grp-sel');
+    selBox.onclick=e=>e.stopPropagation();
+    selBox.onchange=e=>{
+      if(e.target.checked){ if(!state.selectedIds.includes(g.id)) state.selectedIds.push(g.id); state.selectedId=g.id; }
+      else { state.selectedIds=state.selectedIds.filter(x=>x!==g.id); if(state.selectedId===g.id) state.selectedId=state.selectedIds[0]||null; }
+      renderGroupList(); renderSettingsBar();
+    };
+    const cinput=div.querySelector('.grp-color');
+    cinput.onclick=e=>e.stopPropagation();
+    cinput.oninput=e=>{ g.color=e.target.value; if(g.id===state.selectedId) renderSettingsBar(); };
+    const visBtn=div.querySelector('.vis');
+    visBtn.onclick=e=>{ e.stopPropagation(); g.visible=(g.visible===false); renderGroupList(); };
+    div.querySelector('[data-a=sel]').onclick=()=>{selectOnly(g.id);renderGroupList();renderSettingsBar();};
+    div.querySelector('[data-a=dup]').onclick=()=>duplicateGroup(g);
+    div.querySelector('[data-a=del]').onclick=()=>{
+      state.groups=state.groups.filter(x=>x.id!==g.id);
+      state.selectedIds=state.selectedIds.filter(x=>x!==g.id);
+      if(state.selectedId===g.id) state.selectedId=state.selectedIds[0]||(state.groups.length?state.groups[0].id:null);
+      if(state.selectedId && !state.selectedIds.includes(state.selectedId)) state.selectedIds=[state.selectedId];
+      renderGroupList();renderSettingsBar();updateStats();
+    };
+    div.onclick=e=>{ if(!e.target.closest('button') && !e.target.closest('input')){selectOnly(g.id);renderGroupList();renderSettingsBar();} };
+    list.appendChild(div);
+  }
+}
+
+/* ============ stats ============ */
+function updateStats(){
+  let inst=0, pts=0;
+  for(const g of state.groups){
+    inst+=g.instances.length;
+    for(const i of g.instances) pts += (i._rts ? i._rts.length : 1);
+  }
+  $('stGroups').textContent=state.groups.length;
+  $('stInst').textContent=inst;
+  $('stPoints').textContent=pts;
+}
+
+/* ============ モード切替 ============ */
+function setMode(m){
+  state.mode=m;
+  state.rectDragging=false; state.rectStart=null;
+  state.lineDragging=false; state.lineStart=null;
+  if(m==='draw') state.eraser=false;   // 描画モードでは消しゴム無効
+  updateEraserBtn();
+  $('modeDraw').classList.toggle('active',m==='draw');
+  $('modePlace').classList.toggle('active',m==='place');
+  $('modeRect').classList.toggle('active',m==='rect');
+  $('drawCtrls').style.display=m==='draw'?'block':'none';
+  $('placeCtrls').style.display=m==='place'?'block':'none';
+  $('rectCtrls').style.display=m==='rect'?'block':'none';
+  const era = state.eraser ? ' ／ 消しゴムON: タップで削除' : '';
+  $('modeHint').textContent =
+    m==='draw'  ? '描画モード: グリッド上の2点をタップして直線を引きます' :
+    m==='place' ? '配置モード: タップで1本配置／ドラッグでライン状に配置。右クリック/消しゴムで削除'+era :
+                  '矩形敷詰モード: ドラッグで矩形を選択→内部に敷き詰め。右クリック/消しゴムで削除'+era;
+  cv.style.cursor = state.eraser ? 'not-allowed' : (m==='place'?'copy':'crosshair');
+}
+function updateEraserBtn(){
+  const b=$('eraserBtn');
+  b.disabled = (state.mode==='draw');
+  b.classList.toggle('active', state.eraser && state.mode!=='draw');
+  b.textContent = state.eraser ? '消しゴムON（タップで削除）' : '消しゴム（タップで削除）';
+}
+
+/* ============ canvas マウス ============ */
+function canvasPos(e){
+  const r=cv.getBoundingClientRect();
+  return { x:(e.clientX-r.left)*(cv.width/r.width), y:(e.clientY-r.top)*(cv.height/r.height) };
+}
+// 最寄りインスタンスを削除（タッチでも押しやすい閾値・ズーム追従）
+function deleteNearest(p){
+  const thr=Math.max(18, gridGeom().cell*state.zoom*0.6), thr2=thr*thr;
+  let best=null,bestD=thr2;
+  for(const g of state.groups){
+    g.instances.forEach((inst,i)=>{
+      const a=gridToPx(inst.gx,inst.gy);
+      const d=(a.x-p.x)**2+(a.y-p.y)**2;
+      if(d<bestD){bestD=d;best={g,i};}
+    });
+  }
+  if(best){ best.g.instances.splice(best.i,1); reindexGroup(best.g); renderGroupList(); updateStats(); return true; }
+  return false;
+}
+// タップ/クリック（描画点の選択・配置・削除）
+function handleTap(p){
+  const np=nearestGridPt(p.x,p.y);
+  if(!np) return;
+  if(state.mode==='draw'){
+    if(state.drawPts.length>=2) state.drawPts=[];
+    if(state.drawPts.length===1 && state.drawPts[0].gx===np.gx && state.drawPts[0].gy===np.gy) return;
+    state.drawPts.push({gx:np.gx,gy:np.gy});
+    $('saveLineBtn').disabled = state.drawPts.length<2;
+    return;
+  }
+  if(state.eraser){ deleteNearest(p); return; }
+  if(state.mode==='place'){
+    const g=getSelected();
+    if(!g){ alert('配置するグループを選択してください。'); return; }
+    const inst={gx:np.gx, gy:np.gy, anchor:state.placeAnchor, orderIndex:nextOrderIndex(g)};
+    initRuntime(g, inst);
+    g.instances.push(inst);
+    renderGroupList(); updateStats();
+  }
+}
+
+/* ポインタ操作（マウス/タッチ/ペン共通）
+   - 左クリック/1本指: 描画・配置・矩形・消しゴム（従来）
+   - 右クリック: 配置削除（contextmenu）
+   - 中ボタンドラッグ / 2本指ドラッグ: 表示パン
+   - ホイール / 2本指ピンチ: ズーム */
+const activePointers=new Map();   // pointerId -> {x,y}（canvas座標）
+let panLast=null, pinchPrev=null, gestureActive=false;
+function pinchState(){
+  const v=[...activePointers.values()];
+  const dx=v[0].x-v[1].x, dy=v[0].y-v[1].y;
+  return { dist:Math.hypot(dx,dy), cx:(v[0].x+v[1].x)/2, cy:(v[0].y+v[1].y)/2 };
+}
+cv.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse' && e.button===2) return;           // 右クリックは削除(contextmenu)に任せる
+  if(e.pointerType==='mouse' && e.button===1){                  // 中ボタン=パン
+    e.preventDefault(); panLast=canvasPos(e); gestureActive=true;
+    try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+    return;
+  }
+  if(e.pointerType==='mouse' && e.button!==0) return;
+  e.preventDefault();
+  try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+  activePointers.set(e.pointerId, canvasPos(e));
+  if(activePointers.size===2){                                  // ピンチ/2本指パン開始
+    state.rectDragging=false; state.rectStart=null;            // 1本指で始めた操作を取り消し
+    pinchPrev=pinchState(); gestureActive=true;
+    return;
+  }
+  const p=canvasPos(e);
+  state.hoverPt=nearestGridPt(p.x,p.y);
+  if(state.mode==='rect' && !state.eraser && state.hoverPt){
+    state.rectStart={gx:state.hoverPt.gx, gy:state.hoverPt.gy};
+    state.rectDragging=true;
+  }else if(state.mode==='place' && !state.eraser && state.hoverPt){
+    state.lineStart={gx:state.hoverPt.gx, gy:state.hoverPt.gy};
+    state.lineDragging=true;
+  }
+});
+cv.addEventListener('pointermove',e=>{
+  if(panLast){                                                  // 中ボタンパン中
+    const p=canvasPos(e);
+    state.panX+=p.x-panLast.x; state.panY+=p.y-panLast.y; panLast=p; return;
+  }
+  if(activePointers.has(e.pointerId)) activePointers.set(e.pointerId, canvasPos(e));
+  if(activePointers.size===2){                                  // ピンチ＋2本指パン
+    const cur=pinchState();
+    if(pinchPrev && pinchPrev.dist>0 && cur.dist>0){
+      zoomAt(cur.cx, cur.cy, cur.dist/pinchPrev.dist);
+      state.panX+=cur.cx-pinchPrev.cx; state.panY+=cur.cy-pinchPrev.cy;
+    }
+    pinchPrev=cur; return;
+  }
+  const p=canvasPos(e);
+  state.hoverPt=nearestGridPt(p.x,p.y);
+});
+cv.addEventListener('pointerup',e=>{
+  if(panLast){ panLast=null; gestureActive=false; return; }
+  const had=activePointers.delete(e.pointerId);
+  if(gestureActive){                                            // ジェスチャ由来の指離しは配置しない
+    if(activePointers.size<2) pinchPrev=null;
+    if(activePointers.size===0) gestureActive=false;
+    return;
+  }
+  if(!had) return;
+  const p=canvasPos(e);
+  if(state.mode==='rect' && state.rectDragging){
+    state.rectDragging=false;
+    const end=state.hoverPt || state.rectStart;
+    if(state.rectStart && end){ fillRect(state.rectStart, end); }
+    state.rectStart=null;
+  }else if(state.mode==='place' && state.lineDragging){
+    state.lineDragging=false;
+    const s=state.lineStart, end=state.hoverPt||s;
+    if(s && end && (end.gx!==s.gx || end.gy!==s.gy)){ placeLine(s, end); }  // ドラッグ=ライン配置
+    else { handleTap(p); }                                                  // タップ=単体配置
+    state.lineStart=null;
+  }else{
+    handleTap(p);
+  }
+});
+cv.addEventListener('pointercancel',e=>{
+  activePointers.delete(e.pointerId); panLast=null;
+  state.rectDragging=false; state.rectStart=null;
+  state.lineDragging=false; state.lineStart=null;
+  if(activePointers.size<2) pinchPrev=null;
+  if(activePointers.size===0) gestureActive=false;
+});
+cv.addEventListener('pointerleave',e=>{ if(e.pointerType==='mouse' && !state.rectDragging && !panLast) state.hoverPt=null; });
+// ホイールでズーム（カーソル位置を固定）
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const p=canvasPos(e);
+  zoomAt(p.x, p.y, e.deltaY<0?1.1:1/1.1);
+}, {passive:false});
+
+/* 矩形範囲の配置点列を返す（UI/プリセット/プレビュー共通）。
+   o = { x0,y0,x1,y1, dir:'h'|'v', corner:'tl'|'tr'|'bl'|'br', skip:0, startOffset:0 }
+   全セルを走査順に並べ、先頭 startOffset 個を空けてから (skip+1) 個ごとに配置。
+   戻り値: 配置する点 {gx,gy,idx}（idx=配置の連番＝欠番なし）。 */
+function rectFillPoints(o){
+  const dir=o.dir||'h', corner=o.corner||'tl';
+  const step=Math.max(1, (o.skip|0)+1), head=Math.max(0, o.startOffset|0);
+  const minx=Math.min(o.x0,o.x1), maxx=Math.max(o.x0,o.x1);
+  const miny=Math.min(o.y0,o.y1), maxy=Math.max(o.y0,o.y1);
+  const xs=[],ys=[];
+  for(let x=minx;x<=maxx;x++) xs.push(x);   // 全セルを走査（間引きは走査順で行う）
+  for(let y=miny;y<=maxy;y++) ys.push(y);
+  // 開始隅の「反対方向」へ進むよう各軸の昇降を決める
+  const xRev=(corner==='tr'||corner==='br'), yRev=(corner==='bl'||corner==='br');
+  const ox=xRev?xs.slice().reverse():xs, oy=yRev?ys.slice().reverse():ys;
+  const all=[];
+  if(dir==='h'){ for(const y of oy) for(const x of ox) all.push({gx:x,gy:y}); }
+  else         { for(const x of ox) for(const y of oy) all.push({gx:x,gy:y}); }
+  // 先頭 head 個を空け、そこから step 個ごとに配置。番号は配置順の連番（欠番なし）。
+  const placed=[];
+  for(let seq=head; seq<all.length; seq+=step){ placed.push({gx:all[seq].gx, gy:all[seq].gy, idx:placed.length}); }
+  return placed;
+}
+/* 矩形範囲にグループの直線を敷き詰める（UI/プリセット共通の中核） */
+function fillRectInto(g, o){
+  const anchor=o.anchor||'center';
+  const placed=rectFillPoints(o);
+  const base=nextOrderIndex(g);
+  for(const pt of placed){
+    const inst={gx:pt.gx, gy:pt.gy, anchor, orderIndex:base+pt.idx};  // 連番＝欠番なし
+    initRuntime(g, inst);
+    g.instances.push(inst);
+  }
+  return g;
+}
+/* 2グリッド点間を結ぶ直線上のグリッド点列（Bresenham, a→b順） */
+function gridLinePoints(a,b){
+  let x0=a.gx,y0=a.gy; const x1=b.gx,y1=b.gy;
+  const dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
+  const sx=x0<x1?1:-1, sy=y0<y1?1:-1;
+  let err=dx-dy; const pts=[];
+  while(true){
+    pts.push({gx:x0,gy:y0});
+    if(x0===x1 && y0===y1) break;
+    const e2=2*err;
+    if(e2>-dy){ err-=dy; x0+=sx; }
+    if(e2<dx){ err+=dx; y0+=sy; }
+  }
+  return pts;
+}
+/* 配置モードのドラッグ：開始点→終点のライン上に敷き詰め */
+function placeLine(a,b){
+  const g=getSelected();
+  if(!g){ alert('配置するグループを選択してください。'); return; }
+  const pts=gridLinePoints(a,b);
+  const base=nextOrderIndex(g);
+  pts.forEach((pt,seq)=>{
+    const inst={gx:pt.gx, gy:pt.gy, anchor:state.placeAnchor, orderIndex:base+seq};
+    initRuntime(g, inst);
+    g.instances.push(inst);
+  });
+  renderGroupList(); updateStats();
+}
+/* ドラッグ操作からの呼び出し（現在のUI設定を使用） */
+function fillRect(a,b){
+  const g=getSelected();
+  if(!g){ alert('敷き詰めるグループを選択してください。'); return; }
+  fillRectInto(g, {x0:a.gx,y0:a.gy,x1:b.gx,y1:b.gy, dir:state.rectDir, corner:state.rectCorner, skip:state.rectSkip, anchor:state.placeAnchor, startOffset:state.rectStartOffset});
+  renderGroupList(); updateStats();
+}
+// 右クリックで配置削除（PC・全モードで有効）
+cv.addEventListener('contextmenu',e=>{
+  e.preventDefault();
+  deleteNearest(canvasPos(e));
+});
+
+/* ============ ボタン ============ */
+$('modeDraw').onclick=()=>setMode('draw');
+$('modePlace').onclick=()=>setMode('place');
+$('modeRect').onclick=()=>setMode('rect');
+$('zoomInBtn').onclick=()=>zoomAt(cv.width/2, cv.height/2, 1.2);
+$('zoomOutBtn').onclick=()=>zoomAt(cv.width/2, cv.height/2, 1/1.2);
+$('zoomResetBtn').onclick=resetView;
+$('randomBtn').onclick=()=>randomizeSelected((Math.random()*1e9)|0);
+$('seedApplyBtn').onclick=()=>randomizeSelected(parseInt($('seedInput').value)||0);
+$('seedInput').addEventListener('change',()=>randomizeSelected(parseInt($('seedInput').value)||0));
+$('seedInput').addEventListener('keydown',e=>{ if(e.key==='Enter') randomizeSelected(parseInt($('seedInput').value)||0); });
+$('seedInput').value=state.lastSeed;
+$('eraserBtn').onclick=()=>{
+  if(state.mode==='draw') return;
+  state.eraser=!state.eraser;
+  updateEraserBtn();
+  setMode(state.mode);   // ヒント・カーソルを更新
+};
+$('saveLineBtn').onclick=()=>{ createGroupFromDraw(); $('saveLineBtn').disabled=true; setMode('place'); };
+$('clearDrawBtn').onclick=()=>{ state.drawPts=[]; $('saveLineBtn').disabled=true; };
+const clearInst=()=>{ const g=getSelected(); if(g){g.instances=[];renderGroupList();updateStats();} };
+$('clearInstBtn').onclick=clearInst;
+$('clearInstBtnR').onclick=clearInst;
+const setAnchor=v=>{ state.placeAnchor=v; $('anchorSel').value=v; $('anchorSelR').value=v; };
+$('anchorSel').addEventListener('change',e=>setAnchor(e.target.value));
+$('anchorSelR').addEventListener('change',e=>setAnchor(e.target.value));
+$('rectDirSel').addEventListener('change',e=>{ state.rectDir=e.target.value; });
+$('rectCornerSel').addEventListener('change',e=>{ state.rectCorner=e.target.value; });
+$('rectSkipInput').addEventListener('input',e=>{ state.rectSkip=Math.max(0,parseInt(e.target.value)||0); });
+$('rectStartOffset').addEventListener('input',e=>{ state.rectStartOffset=Math.max(0,parseInt(e.target.value)||0); });
+$('gridSize').addEventListener('change',e=>{
+  let n=parseInt(e.target.value)||5; n=Math.max(2,Math.min(100,n));
+  e.target.value=n; state.gridN=n; state.drawPts=[]; $('saveLineBtn').disabled=true; gridCache=null;
+});
+$('playBtn').onclick=()=>{
+  state.running=!state.running;
+  $('playBtn').textContent = state.running?'⏸ 一時停止':'▶ 再生';
+};
+$('resetBtn').onclick=()=>{ state.animTime=0; initAllRuntimes(); };
+$('toggleLinesBtn').onclick=()=>{
+  state.showLines=!state.showLines;
+  const b=$('toggleLinesBtn');
+  b.classList.toggle('active',state.showLines);
+  b.textContent=state.showLines?'直線表示':'直線非表示';
+};
+$('toggleGridBtn').onclick=()=>{
+  state.showGrid=!state.showGrid;
+  const b=$('toggleGridBtn');
+  b.classList.toggle('active',state.showGrid);
+  b.textContent=state.showGrid?'グリッド表示':'グリッド非表示';
+};
+
+/* ============ JSON 書出/読込 ============ */
+function exportJSON(){
+  const data={
+    version:1,
+    grid:{ n: state.gridN },
+    groups: state.groups.map(g=>({
+      name:g.name, color:g.color, lengthCells:g.lengthCells, baseAngle:g.baseAngle, visible:g.visible!==false,
+      settings:g.settings,
+      instances:g.instances.map(i=>({gx:i.gx, gy:i.gy, anchor:i.anchor, orderIndex:i.orderIndex||0}))
+    }))
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const ts=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  a.href=url; a.download='pattern-'+ts+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+function normalizeSettings(s){
+  const base=makeSettings();
+  if(s) for(const d of SETTING_DEFS){
+    const v=s[d.key];
+    if(v) base[d.key]={ value:Number(v.value)||0, vary:!!v.vary, increment:Number(v.increment)||0 };
+  }
+  return base;
+}
+function importJSON(file){
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(!data || !Array.isArray(data.groups)) throw new Error('groups が見つかりません');
+      if(data.grid && data.grid.n){
+        state.gridN=Math.max(2,Math.min(100,parseInt(data.grid.n)||5));
+        $('gridSize').value=state.gridN; gridCache=null;
+      }
+      state.groups=data.groups.map(g=>({
+        id:nextId++,
+        name:g.name||'グループ',
+        color:g.color||'#ffffff',
+        lengthCells:Number(g.lengthCells)||1,
+        baseAngle:Number(g.baseAngle)||0,
+        visible:g.visible!==false,
+        settings:normalizeSettings(g.settings),
+        instances:Array.isArray(g.instances)? g.instances.map(i=>({
+          gx:i.gx|0, gy:i.gy|0, anchor:i.anchor||'center', orderIndex:i.orderIndex||0
+        })):[]
+      }));
+      for(const g of state.groups) reindexGroup(g);   // 欠番があれば詰め直す
+      selectOnly(state.groups.length?state.groups[0].id:null);
+      state.animTime=0; initAllRuntimes();
+      renderGroupList(); renderSettingsBar(); updateStats();
+    }catch(e){ alert('読み込み失敗: '+e.message); }
+  };
+  reader.readAsText(file);
+}
+$('exportBtn').onclick=exportJSON;
+$('importBtn').onclick=()=>$('importFile').click();
+$('importFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) importJSON(f); e.target.value=''; });
+
+/* ============ プリセット（JSで定義） ============
+   各プリセットは { name, grid, build(b) }。build は下記ビルダー b を受け取り、
+   グループ生成・設定・配置をJSで簡潔に書ける。JSON羅列より圧倒的に短い。
+
+   ビルダー API:
+     b.group({ length, angle, color, name })   直線グループを作成して返す
+       └ または { p1:[gx,gy], p2:[gx,gy] } で2点から長さ・角度を決定
+     b.set(g, { speed:120, angle:0, ... })      設定の「基準値」をまとめて指定
+     b.set(g, 'delay', { vary:true, increment:0.06 })  ずらし等を細かく指定
+     b.place(g, gx, gy, anchor='center')         1本だけ配置
+     b.fill(g, { x0,y0,x1,y1, dir:'h'|'v', corner:'tl'|'tr'|'bl'|'br', skip:0, anchor })
+                                                  矩形範囲に敷き詰め（UIと同じ走査順）
+   設定キー: speed, angle, delay, startPos, stopInterval, stopDuration,
+             pointCount, pointOffset, pointSize （各 value/vary/increment）
+*/
+function makeBuilder(){
+  return {
+    group(o={}){
+      let lengthCells, baseAngle;
+      if(o.p1 && o.p2){
+        const dx=o.p2[0]-o.p1[0], dy=o.p2[1]-o.p1[1];
+        lengthCells=Math.hypot(dx,dy)||1; baseAngle=Math.atan2(dy,dx)*180/Math.PI;
+      }else{
+        lengthCells=o.length!=null?o.length:1; baseAngle=o.angle!=null?o.angle:0;
+      }
+      const g={ id:nextId++, name:o.name||('グループ '+(state.groups.length+1)),
+        color:o.color||'#ffffff', lengthCells, baseAngle, settings:makeSettings(), instances:[], visible:true };
+      state.groups.push(g);
+      return g;
+    },
+    set(g, a, b){
+      if(typeof a==='string'){ Object.assign(g.settings[a], b||{}); }
+      else for(const k in a){
+        if(!g.settings[k]) continue;
+        const v=a[k];
+        if(v && typeof v==='object') Object.assign(g.settings[k], v);
+        else g.settings[k].value=v;
+      }
+      return g;
+    },
+    place(g, gx, gy, anchor='center'){
+      const inst={gx, gy, anchor, orderIndex:nextOrderIndex(g)};
+      initRuntime(g, inst); g.instances.push(inst); return inst;
+    },
+    fill(g, o){ return fillRectInto(g, o); },
+  };
+}
+function loadPreset(preset){
+  if(!preset) return;
+  if(state.groups.length && !confirm('現在の内容を置き換えてプリセットを読み込みます。よろしいですか？')) return;
+  state.groups=[]; selectOnly(null); state.animTime=0;
+  if(preset.grid){ state.gridN=Math.max(2,Math.min(100,preset.grid|0)); $('gridSize').value=state.gridN; gridCache=null; }
+  try{ preset.build(makeBuilder()); }
+  catch(e){ alert('プリセット生成に失敗: '+e.message); }
+  selectOnly(state.groups.length?state.groups[0].id:null);
+  initAllRuntimes();
+  renderGroupList(); renderSettingsBar(); updateStats();
+}
+
+const PRESETS = [
+  { name:'横波 7×7', grid:7, build(b){
+    const g=b.group({ length:1.6, angle:0, color:'#5b8cff', name:'横波' });
+    b.set(g, { speed:90, pointCount:1 });
+    b.set(g, 'delay', { vary:true, increment:0.06 });   // 配置順に遅延→進行波
+    b.fill(g, { x0:0,y0:0, x1:6,y1:6, dir:'h', corner:'tl' });
+  }},
+  { name:'クロス 9×9', grid:9, build(b){
+    const gh=b.group({ length:1.4, angle:0,  color:'#62d0ff', name:'横' });
+    b.set(gh, { speed:80 }); b.set(gh,'delay',{ vary:true, increment:0.05 });
+    b.fill(gh, { x0:0,y0:0, x1:8,y1:8, dir:'h', corner:'tl' });
+    const gv=b.group({ length:1.4, angle:90, color:'#ff7ab6', name:'縦' });
+    b.set(gv, { speed:80 }); b.set(gv,'delay',{ vary:true, increment:0.05 });
+    b.fill(gv, { x0:0,y0:0, x1:8,y1:8, dir:'v', corner:'tl' });
+  }},
+  { name:'マルチ点 走査 9×9', grid:9, build(b){
+    const g=b.group({ length:2, angle:0, color:'#ffb84d', name:'マルチ点' });
+    b.set(g, { speed:140, pointCount:4, pointOffset:25 });
+    b.set(g, 'delay', { vary:true, increment:0.04 });
+    b.fill(g, { x0:0,y0:0, x1:8,y1:8, dir:'h', corner:'tl' });
+  }},
+  { name:'対角・サイズ勾配 7×7', grid:7, build(b){
+    const g=b.group({ length:1.5, angle:45, color:'#c5e15b', name:'対角' });
+    b.set(g, { speed:70, pointSize:4.5 });
+    b.set(g, 'pointSize', { vary:true, increment:-0.07 });  // 配置順に点が小さく
+    b.set(g, 'delay', { vary:true, increment:0.05 });
+    b.fill(g, { x0:0,y0:0, x1:6,y1:6, dir:'h', corner:'tl' });
+  }},
+];
+
+function initPresetUI(){
+  const sel=$('presetSel');
+  sel.innerHTML='<option value="">プリセット選択…</option>'+
+    PRESETS.map((p,i)=>`<option value="${i}">${escapeHtml(p.name)}</option>`).join('');
+  $('presetLoadBtn').onclick=()=>{
+    const i=sel.value;
+    if(i==='') return;
+    loadPreset(PRESETS[+i]);
+    state.running=true; $('playBtn').textContent='⏸ 一時停止';  // 読み込んだら再生
+  };
+}
+
+/* ============ utils ============ */
+function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function escapeAttr(s){return String(s).replace(/"/g,'&quot;');}
+
+/* ============ init ============ */
+setMode('draw');
+initPresetUI();
+renderGroupList();
+renderSettingsBar();
+updateStats();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
